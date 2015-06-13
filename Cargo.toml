@@ -7,8 +7,8 @@ license = "MIT"
 keywords = ["bindings", "llvm"]
 
 name = "llvm-sys"
-version = "0.1.3"
-authors = ["Peter Marheine <peter@taricorp.net>"]
+version = "0.1.4"
+authors = ["Peter Marheine <peter@taricorp.net>", "Tom Bebbington <tophattedcoder@gmail.com>"]
 build = "build.rs"
 
 [features]
@@ -20,4 +20,5 @@ bitflags = "*"
 libc = "*"
 
 [build-dependencies]
+glob = "*"
 semver = "*"

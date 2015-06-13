@@ -1,3 +1,4 @@
+extern crate glob;
 extern crate semver;
 
 use semver::{Version, VersionReq};
@@ -99,10 +100,15 @@ fn main() {
 }
 
 fn get_llvm_config() -> (Cow<'static, str>, Version) {
-    match Command::new("llvm-config").arg("--version").output() {
+    let mut name = String::new();
+    for path in glob::glob("/usr/bin/llvm-config*").unwrap() {
+        let path = path.unwrap();
+        name = path.file_name().unwrap().to_str().unwrap().to_string()
+    }
+    match Command::new(&name).arg("--version").output() {
         Ok(x) => {
             // llvm-config was on our PATH. Easy.
-            (Cow::Borrowed("llvm-config"),
+            (Cow::Owned(name),
              Version::parse(std::str::from_utf8(&x.stdout[..]).unwrap()).unwrap())
         }
         Err(_) => {
