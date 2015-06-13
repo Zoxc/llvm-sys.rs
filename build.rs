@@ -89,7 +89,7 @@ fn main() {
 
     // llvm-config --cxxflags: determine which libc++ to use: LLVM's or GCC's
     let output = String::from_utf8(
-        Command::new(&*llvm_config).arg("--cxxflags").output().unwrap().stdout
+        Command::new(&*llvm_config).arg("--cxxflags").output().ok().expect("bad output from llvm-config").stdout
     ).unwrap();
     let libcpp = if output.contains("stdlib=libc++") {
         "c++"
@@ -100,16 +100,17 @@ fn main() {
 }
 
 fn get_llvm_config() -> (Cow<'static, str>, Version) {
+    static BAD_PATH:&'static str = "unparseable llvm-config path";
     let mut name = String::new();
-    for path in glob::glob("/usr/bin/llvm-config*").unwrap() {
-        let path = path.unwrap();
-        name = path.file_name().unwrap().to_str().unwrap().to_string()
+    for path in glob::glob("/usr/bin/llvm-config*").ok().expect("could not parse glob") {
+        let path:PathBuf = path.ok().expect("bad glob");
+        name = path.file_name().expect(BAD_PATH).to_str().expect(BAD_PATH).to_string()
     }
     match Command::new(&name).arg("--version").output() {
         Ok(x) => {
             // llvm-config was on our PATH. Easy.
             (Cow::Owned(name),
-             Version::parse(std::str::from_utf8(&x.stdout[..]).unwrap()).unwrap())
+             Version::parse(std::str::from_utf8(&x.stdout[..]).ok().expect("output was not utf-8")).ok().expect("could not parse version from llvm-config"))
         }
         Err(_) => {
             panic!("llvm-config not found. Install LLVM before attempting to build.");

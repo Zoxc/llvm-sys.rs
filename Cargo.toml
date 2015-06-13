@@ -6,10 +6,13 @@ readme = "README.md"
 license = "MIT"
 keywords = ["bindings", "llvm"]
 
-name = "llvm-sys"
+name = "llvm-alt-sys"
 version = "0.1.4"
 authors = ["Peter Marheine <peter@taricorp.net>", "Tom Bebbington <tophattedcoder@gmail.com>"]
 build = "build.rs"
+
+[lib]
+name = "llvm_sys"
 
 [features]
 # Turn this on to link against LLVM as a shared rather than static library

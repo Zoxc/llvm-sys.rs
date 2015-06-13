@@ -1,5 +1,5 @@
 [root]
-name = "llvm-sys"
+name = "llvm-alt-sys"
 version = "0.1.4"
 dependencies = [
  "bitflags 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
