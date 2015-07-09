@@ -3,7 +3,7 @@ extern crate semver;
 
 use semver::{Version, VersionReq};
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::from_utf8_unchecked;
 use std::process::Command;
 
@@ -11,7 +11,7 @@ fn is_whitespace(x: &u8) -> bool {
     ['\n', '\t', ' '].contains(&(*x as char))
 }
 
-fn build_wrappers() -> (String, &'static str) {
+fn build_wrappers() -> (PathBuf, String, &'static str) {
     // Get Cargo directories
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     let mut src_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
@@ -37,17 +37,22 @@ fn build_wrappers() -> (String, &'static str) {
         }
     }
 
-    (out_dir.into_os_string().into_string().unwrap(),
+    // Get LLVM location
+    let output = Command::new("cmake").args(&["-N", "-L"]).arg(&out_dir).output().unwrap().stdout;
+    let dir = std::str::from_utf8(&output).unwrap().lines().filter(|l| l.starts_with("LLVM_DIR:PATH=")).next().unwrap();
+    let prefix = Path::new(&dir["LLVM_DIR:PATH=".len()..]).parent().unwrap().parent().unwrap().parent().unwrap();
+
+    (prefix.to_path_buf(), out_dir.into_os_string().into_string().unwrap(),
      "targetwrappers")
 }
 
 fn main() {
-    let (wrappers_out_dir, wrappers_lib_name) = build_wrappers();
+    let (llvm_prefix, wrappers_out_dir, wrappers_lib_name) = build_wrappers();
     println!("cargo:rustc-link-search=native={}", wrappers_out_dir);
     println!("cargo:rustc-link-lib=static={}", wrappers_lib_name);
 
     let minimum_llvm_version = VersionReq::parse(">=3.6").unwrap();
-    let (llvm_config, version) = get_llvm_config();
+    let (llvm_config, version) = get_llvm_config(llvm_prefix);
     if minimum_llvm_version.matches(&version) {
         println!("Found LLVM version {}", version);
     } else {
@@ -99,16 +104,17 @@ fn main() {
     println!("cargo:rustc-link-lib={}", libcpp);
 }
 
-fn get_llvm_config() -> (Cow<'static, str>, Version) {
+fn get_llvm_config(mut prefix: PathBuf) -> (Cow<'static, str>, Version) {
     static BAD_PATH:&'static str = "unparseable llvm-config path";
+    prefix.push("bin");
+    prefix.push("llvm-config*");
     let mut name = String::new();
-    for path in glob::glob("/usr/bin/llvm-config*").ok().expect("could not parse glob") {
+    for path in glob::glob(prefix.to_str().unwrap()).ok().expect("could not parse glob") {
         let path:PathBuf = path.ok().expect("bad glob");
-        name = path.file_name().expect(BAD_PATH).to_str().expect(BAD_PATH).to_string()
+        name = path.to_str().expect(BAD_PATH).to_string()
     }
     match Command::new(&name).arg("--version").output() {
         Ok(x) => {
-            // llvm-config was on our PATH. Easy.
             (Cow::Owned(name),
              Version::parse(std::str::from_utf8(&x.stdout[..]).ok().expect("output was not utf-8")).ok().expect("could not parse version from llvm-config"))
         }
